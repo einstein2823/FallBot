@@ -660,6 +660,11 @@ public class SnazzyPIDCalculator implements PIDInterface, LiveWindowSendable {
    */
   @Override
   public synchronized void enable() {
+	if(!m_enabled) {
+		m_prevError = 0;
+		m_totalError = 0;
+		m_result = 0;
+	}
     m_enabled = true;
     m_log.open(m_file, "Timestamp, Input, Error, Accumulated Error, Calculated Output, P: " + m_P + ", I: " + m_I +  ", D: " + m_D + ", F: " + m_F + ", Setpoint\n");
     m_log.reset();

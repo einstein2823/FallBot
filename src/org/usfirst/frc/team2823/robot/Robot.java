@@ -84,8 +84,7 @@ public class Robot extends IterativeRobot {
 
 	Button buttonA;
 	Button buttonB;
-	Button PidIncrement;
-
+	Button buttonX;
 
 	TalonSRX motor0;
 	TalonSRX motor1;
@@ -98,27 +97,29 @@ public class Robot extends IterativeRobot {
 	Compressor compressor;
 	Encoder leftEncoder;
 	Encoder rightEncoder;
-	int count = 1;
-	double speed = 0.0;
-	double testTime = 0.0;
-	int reverse = -1;
-	double maxMotorPower = .8; // maximum motor power output for 775's - owen
-	double motorRampRate = 8;// owen
+	
+	SnazzyMotionPlanner leftControl;
+	SnazzyMotionPlanner rightControl;
+	
+	LeftDrivePIDOutput lDriveOutput;
+	RightDrivePIDOutput rDriveOutput;
+	
+	
+	double maxMotorPower = .8; // maximum motor power output for 775's - owen said 0.8, but trying 
+	double motorRampRate = 36;// owen
 	//double lastShift;
-	DoubleSolenoid.Value highGear ;
-	DoubleSolenoid.Value lowGear ;
-	AdvancedPIDController DriveLeftControl;
-	AdvancedPIDController DriveRightControl;
-	DrivePidOutput DriveLeftOutput;
-	DrivePidSource DriveLeftSource;
-	DrivePidOutput DriveRightOutput;
-	DrivePidSource DriveRightSource;
+	
+	//final double ENC_TO_IN = 2 * Math.PI * WHEEL_RADIUS * DRIVE_RATIO / ENCODER_RESOLUTION;
+	//final double IN_TO_ENC = ENCODER_RESOLUTION / (2 * Math.PI * WHEEL_RADIUS * DRIVE_RATIO);
+	
+	DoubleSolenoid.Value highGear = DoubleSolenoid.Value.kReverse;
+	DoubleSolenoid.Value lowGear = DoubleSolenoid.Value.kForward;
+	
 	double wheelDiameter = 4;
 	double highGearDistancePerRev = (wheelDiameter * Math.PI) / 12.2646604938; // 12.2646604938 775 turns per wheel rev
 	double lowGearDistancePerRev = (wheelDiameter * Math.PI) / 30.9375; // 30.9375 775 turns per wheel rev
 	double highGearDistancePerPulse = (highGearDistancePerRev / 12)*((15+5/8)/4); // 12 pulses per rev
 	double lowGearDistancePerPulse = (lowGearDistancePerRev / 12)*((15+5/8)/4); // 12 pulses per rev; ((15-5/8)/4) multiplier  because Owen probably did his math wrong
-	//double timeSinceLastShift;
 	/**
 	 * This function is run when the robot is first started up and should be used
 	 * for any initialization code.
@@ -136,7 +137,8 @@ public class Robot extends IterativeRobot {
 
 		buttonA = new Button();
 		buttonB = new Button();
-		PidIncrement = new Button();
+		buttonX = new Button();
+		
 		motor0 = new TalonSRX(11);
 		motor1 = new TalonSRX(12);
 		motor2 = new TalonSRX(13);
@@ -144,58 +146,46 @@ public class Robot extends IterativeRobot {
 		motor4 = new TalonSRX(22);
 		motor5 = new TalonSRX(23);
 
-		motor1.follow(motor0);
-		motor2.follow(motor0);
-
-		motor4.follow(motor3);
-		motor5.follow(motor3);
-
 		motor0.setVoltageRampRate(motorRampRate);
+		motor1.setVoltageRampRate(motorRampRate);
+		motor2.setVoltageRampRate(motorRampRate);
 		
 		motor3.setVoltageRampRate(motorRampRate);
+		motor4.setVoltageRampRate(motorRampRate);
+		motor5.setVoltageRampRate(motorRampRate);
 		
 		
 		leftEncoder = new Encoder(2, 3, false, Encoder.EncodingType.k4X);
-		leftEncoder.setDistancePerPulse(lowGearDistancePerPulse);
-		rightEncoder = new Encoder(0, 1, false, Encoder.EncodingType.k4X);
-		rightEncoder.setDistancePerPulse(lowGearDistancePerPulse);
+		leftEncoder.setDistancePerPulse(1);
+		rightEncoder = new Encoder(0, 1, true, Encoder.EncodingType.k4X);
+		rightEncoder.setDistancePerPulse(1);
 
-		leftEncoder.setSamplesToAverage(20);
-		rightEncoder.setSamplesToAverage(20);
+		//leftEncoder.setSamplesToAverage(20);
+		//rightEncoder.setSamplesToAverage(20);
 
 		solenoid1 = new DoubleSolenoid(0, 1);
 		compressor = new Compressor(0);
 
-		lowGear = DoubleSolenoid.Value.kForward;
-		highGear = DoubleSolenoid.Value.kReverse;
-
 		solenoid1.set(lowGear);
 
-
-
+ 
 		leftEncoder.reset();
 		rightEncoder.reset();
-
-		DriveLeftSource = new DrivePidSource(leftEncoder);
-		DriveLeftOutput = new DrivePidOutput(motor3);
-
-		DriveRightSource = new DrivePidSource(rightEncoder);
-		DriveRightOutput = new DrivePidOutput(motor0);
-
-		DriveLeftControl = new AdvancedPIDController(0.05, 0.0005, 0.2, DriveLeftSource, DriveLeftOutput, 0.01);
-		DriveRightControl = new AdvancedPIDController(0.05, 0.0005, 0.2, DriveRightSource, DriveRightOutput, 0.01);
-
-		DriveLeftControl.setAbsoluteTolerance(.1);
-		DriveLeftControl.enable();
-		DriveLeftControl.setKaKv(.02, .01);
-		DriveRightControl.setAbsoluteTolerance(.1);
-		DriveRightControl.enable();
-		DriveRightControl.setKaKv(.02, .01);
-		DriveLeftControl.disable();
-		DriveRightControl.disable();
 		
-		//timeSinceLastShift=0;
-		//double lastShift= 0;
+		lDriveOutput = new LeftDrivePIDOutput(this);
+		rDriveOutput = new RightDrivePIDOutput(this);
+		
+		
+		leftControl = new SnazzyMotionPlanner(0.04, 0.001, 0.8, 0, 0.0017, 0.002,  leftEncoder, lDriveOutput, 0.01, "Left.csv");
+		rightControl= new SnazzyMotionPlanner(0.04, 0.001, 0.8, 0, 0.0017, 0.002,  rightEncoder, rDriveOutput, 0.01,"Right.csv");
+	
+		
+		SmartDashboard.putNumber("P", 0.01);
+		SmartDashboard.putNumber("I", 0.0);
+		SmartDashboard.putNumber("D", 0.0);
+		SmartDashboard.putNumber("Setpoint", 0);
+		SmartDashboard.putNumber("L Encoder", 0);
+		SmartDashboard.putNumber("R Encoder", 0);
 	}
 
 	/**
@@ -215,7 +205,9 @@ public class Robot extends IterativeRobot {
 		m_autoSelected = m_chooser.getSelected();
 		// autoSelected = SmartDashboard.getString("Auto Selector",
 		// defaultAuto);
-		System.out.println("Auto selected: " + m_autoSelected);
+		//System.out.println("Auto selected: " + m_autoSelected);
+		
+		
 	}
 
 	/**
@@ -241,65 +233,43 @@ public class Robot extends IterativeRobot {
 	public void teleopPeriodic() {
 
 	
-		buttonA.update(joystick.getRawButton(6));
-		buttonB.update(joystick.getRawButton(8));
-		PidIncrement.update(joystick.getRawButton(7));
+		buttonA.update(joystick.getRawButton(2));
+		buttonB.update(joystick.getRawButton(3));
 
-		/**		timeSinceLastShift=Timer.getFPGATimestamp()-lastShift;
-if(Math.abs(rightEncoder.getPeriod())<0.0025&& Math.abs(leftEncoder.getPeriod())<0.0025) {
-	if(timeSinceLastShift>.5) {
-	solenoid1.set(lowGear);
-	solenoid2.set(lowGear);
-	leftEncoder.setDistancePerPulse(lowGearDistancePerPulse);
-	rightEncoder.setDistancePerPulse(lowGearDistancePerPulse);
-	lastShift = Timer.getFPGATimestamp();
 
-	}
-}
-else {
-	solenoid1.set(highGear);
-	solenoid2.set(highGear);
-	leftEncoder.setDistancePerPulse(highGearDistancePerPulse);
-	rightEncoder.setDistancePerPulse(highGearDistancePerPulse);
-}
-		 **/
 		if (buttonA.changed()) {
 			solenoid1.set(lowGear);
-			leftEncoder.setDistancePerPulse(lowGearDistancePerPulse);
-			rightEncoder.setDistancePerPulse(lowGearDistancePerPulse);
+			System.out.println("low");
+			//leftEncoder.setDistancePerPulse(lowGearDistancePerPulse);
+			//rightEncoder.setDistancePerPulse(lowGearDistancePerPulse);
 
 		}
 		if (buttonB.changed()) {
 			solenoid1.set(highGear);
-			leftEncoder.setDistancePerPulse(highGearDistancePerPulse);
-			rightEncoder.setDistancePerPulse(highGearDistancePerPulse);
-
-			
-		}
-		if (PidIncrement.changed()) {
-			motor0.enableBrakeMode(!motor0.getBrakeEnableDuringNeutral());
-
-			motor1.enableBrakeMode(!motor1.getBrakeEnableDuringNeutral());
-			motor2.enableBrakeMode(!motor2.getBrakeEnableDuringNeutral());
-
-			motor3.enableBrakeMode(!motor3.getBrakeEnableDuringNeutral());
-
-			motor4.enableBrakeMode(!motor4.getBrakeEnableDuringNeutral());
-
-			motor5.enableBrakeMode(!motor5.getBrakeEnableDuringNeutral());
+			System.out.println("high");
+			//leftEncoder.setDistancePerPulse(highGearDistancePerPulse);
+			//rightEncoder.setDistancePerPulse(highGearDistancePerPulse);
 
 			
 		}
 		
-
+		SmartDashboard.putNumber("L Encoder", leftEncoder.get());
+		SmartDashboard.putNumber("R Encoder", rightEncoder.get());
+		//System.out.println(lowGearDistancePerPulse);
+		
+		
 		motor0.set(Math.pow(joystick.getRawAxis(3), 1) * maxMotorPower);
-		// motor1.set(Math.pow(joystick.getRawAxis(3), 1)*maxMotorPower);
-		// motor2.set(Math.pow(joystick.getRawAxis(3), 1)*maxMotorPower);
+		motor1.set(Math.pow(joystick.getRawAxis(3), 1) * maxMotorPower);
+		motor2.set(Math.pow(joystick.getRawAxis(3), 1) * maxMotorPower);
 		motor3.set(-Math.pow(joystick.getRawAxis(1), 1) * maxMotorPower);
-		// motor4.set(-Math.pow(joystick.getRawAxis(1),1)*maxMotorPower);
-		// motor5.set(-Math.pow(joystick.getRawAxis(1),1)*maxMotorPower);
+		motor4.set(-Math.pow(joystick.getRawAxis(1),1) * maxMotorPower);
+		motor5.set(-Math.pow(joystick.getRawAxis(1),1) * maxMotorPower);
+		
+		
+		//This thing maybe
+		//motorx.set(joystick.getRawAxis(3) > maxSpeed ? joystick.getRawAxis(3) : 0.8)
 		//System.out.println(leftEncoder.getPeriod() + " " + rightEncoder.getPeriod());
-System.out.println(motor3.getOutputCurrent());
+//System.out.println(motor3.getOutputCurrent());
 	}
 
 	/*
@@ -308,42 +278,44 @@ System.out.println(motor3.getOutputCurrent());
 
 	@Override
 	public void testInit() {
-		testTime = Timer.getFPGATimestamp();
+		leftControl.disable();
+		rightControl.disable();
 	}
 
 	@Override
 	public void testPeriodic() {
-		/**if (Timer.getFPGATimestamp() - testTime <= 5) {
-			if (speed < 1.0) {
-				speed += 0.01;
+		buttonX.update(joystick.getRawButton(1));
+		
+		//leftControl.setPID(SmartDashboard.getNumber("P", 0), SmartDashboard.getNumber("I", 0), SmartDashboard.getNumber("D", 0));
+		//rightControl.setPID(SmartDashboard.getNumber("P", 0), SmartDashboard.getNumber("I", 0), SmartDashboard.getNumber("D", 0));
+		
+		if(buttonX.on()){
+			if(buttonX.changed()) {
+				leftEncoder.reset();
+				rightEncoder.reset();
+				
+				leftControl.configureGoal(SmartDashboard.getNumber("Setpoint", 0), 300, 300);
+				rightControl.configureGoal(SmartDashboard.getNumber("Setpoint", 0), 300, 300);
+				
+				leftControl.enable();
+				rightControl.enable();
+				
+				//leftControl.setSetpoint(20);
+				//leftControl.enable();
+				
+				//rightControl.setSetpoint(20);
+				//rightControl.enable();  
 			}
-		} else if (Timer.getFPGATimestamp() - testTime >= 125 && Timer.getFPGATimestamp() - testTime < 130) {
-			if (speed > -1.0) {
-				speed -= 0.01;
-			}
-
-		} else if (Timer.getFPGATimestamp() - testTime >= 245) {
-			testTime = 0.0;
+			
+		}else if (buttonX.changed()&& !buttonX.on()){
+			leftControl.disable();
+			rightControl.disable();
+			
+			//leftControl.stopCalibration();
+			//rightControl.startCalibration();
 		}
-
-		buttonA.update(joystick.getRawButton(2));
-		if (buttonA.on()) {
-			// low gear
-			solenoid1.set(lowGear);
-		} else {
-			// high gear
-			solenoid1.set(highGear);
-		}
-
-		motor0.set(speed);
-		// motor1.set(speed);
-		// motor2.set(speed);
-		motor3.set(-speed);
-		// motor4.set(-speed);
-		// motor5.set(-speed);
-**/
 	}
 	public void disabledInit() {
-		System.out.println("disabled");
+		//System.out.println("disabled");
 	}
 }

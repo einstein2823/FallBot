@@ -195,13 +195,13 @@ public class SnazzyMotionPlanner extends SnazzyPIDCalculator {
 				}
 			}
 		} else {
-			setSetpoint(m_currentWaypoint.m_position + m_initPos);
+			setSetpoint((m_currentWaypoint.m_position*m_invertMultiplier) + m_initPos);
 		}
 		calculate();
 
 		synchronized(this) {
 			if(isEnabled()) {
-				m_pidOutput.pidWrite(m_result*m_invertMultiplier);
+				m_pidOutput.pidWrite(m_result);
 			}
 		}		  
 	}
