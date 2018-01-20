@@ -2,9 +2,12 @@ package org.usfirst.frc.team2823.robot;
 
 import java.util.TimerTask;
 
+import org.usfirst.frc.team2823.robot.SnazzyMotionPlanner.MotionWayPoint;
+
 import edu.wpi.first.wpilibj.PIDOutput;
 import edu.wpi.first.wpilibj.PIDSource;
 import edu.wpi.first.wpilibj.Timer;
+import jaci.pathfinder.Trajectory;
 
 public class SnazzyMotionPlanner extends SnazzyPIDCalculator {
 	private java.util.Timer m_controlLoop;
@@ -17,6 +20,7 @@ public class SnazzyMotionPlanner extends SnazzyPIDCalculator {
 	private int m_count;
 	private MotionWayPoint m_currentWaypoint;
 	private boolean m_motionPlanEnabled = false;
+	private boolean m_motionTrajectoryEnabled = false;
 	private boolean m_planFinished = false;
 	private boolean m_dwell = false;
 	private double m_invertMultiplier = 1.0;
@@ -29,6 +33,8 @@ public class SnazzyMotionPlanner extends SnazzyPIDCalculator {
 	private double  m_timeAtEndOfCruise;
 	private double m_initTime;
 	private double m_initPos;
+	private Trajectory m_trajectory;
+	private double m_period;
 	
 	private double m_kA;
 	private double m_kV;
@@ -48,6 +54,7 @@ public class SnazzyMotionPlanner extends SnazzyPIDCalculator {
 		m_calLog = new SnazzyLog();
 		m_kA = kA;
 		m_kV = kV;
+		m_period = period;
 	}	 
 	public void configureGoal(double goal, double max_v, double max_a, boolean dwell) {
 		m_motionPlanEnabled = true;
@@ -147,9 +154,20 @@ public class SnazzyMotionPlanner extends SnazzyPIDCalculator {
 		}
 		super.free();
 	}
+	
+	public void configureTrajectory(Trajectory t, boolean dwell) {
+		m_motionTrajectoryEnabled = true;
+		m_planFinished = false;
+		m_dwell = dwell;
+		m_initTime = Timer.getFPGATimestamp();
+		m_initPos = m_pidInput.pidGet();
+
+		m_trajectory = t;
+	}
 	public void runCalibration() {
 		m_calLog.open("Calibration" + m_file, "Timestamp, Distance, Velocity" + "\n");
 		synchronized(this) {
+			System.out.println("BOOM runCalibration");
 			m_pidOutput.pidWrite(1.0);
 		}
 		double currentCal = Timer.getFPGATimestamp();
@@ -177,6 +195,7 @@ public class SnazzyMotionPlanner extends SnazzyPIDCalculator {
 	public void stopCalibration() {
 		m_calLog.close();
 		synchronized(this) {
+			System.out.println("BOOM stopCalibration");
 			m_pidOutput.pidWrite(0.0);
 			m_calibrating = false;
 		}
@@ -185,6 +204,32 @@ public class SnazzyMotionPlanner extends SnazzyPIDCalculator {
 	public void runPlan() {
 		double currentTime = Timer.getFPGATimestamp();
 		m_currentWaypoint = getCurrentWaypoint(currentTime - m_initTime);
+
+		if(m_currentWaypoint == null) {
+			synchronized(this) {
+				m_planFinished = true;
+				if(!m_dwell) {
+					System.out.println("BOOM runPlan PIDWRITE 1");
+					m_pidOutput.pidWrite(0.0);
+					return;
+				}
+			}
+		} else {
+			setSetpoint((m_currentWaypoint.m_position*m_invertMultiplier) + m_initPos);
+		}
+		calculate();
+
+		synchronized(this) {
+			if(isEnabled()) {
+				System.out.println("BOOM runPlan PIDWRITE 2");
+				m_pidOutput.pidWrite(m_result);
+			}
+		}		  
+	}
+	
+	public void runTrajectory() {
+		double currentTime = Timer.getFPGATimestamp();
+		m_currentWaypoint = getTrajectoryWaypoint(currentTime - m_initTime);
 
 		if(m_currentWaypoint == null) {
 			synchronized(this) {
@@ -205,13 +250,28 @@ public class SnazzyMotionPlanner extends SnazzyPIDCalculator {
 			}
 		}		  
 	}
-
+	
+	public MotionWayPoint getTrajectoryWaypoint(double t) {
+		int i = (int) (t/m_period);
+		//System.out.println(t + ", " + m_period);
+		if(i >= m_trajectory.length()) {
+			return null;
+		}
+		MotionWayPoint p = new MotionWayPoint();
+		p.m_position = m_trajectory.segments[i].position;
+		p.m_expectedAcceleration = m_trajectory.segments[i].acceleration;
+		p.m_expectedVelocity = m_trajectory.segments[i].velocity;
+		p.m_time = t;
+		
+		return p;
+	}
+	
 	public boolean isPlanFinished() {
 		return m_planFinished;
 	}
 	
 	protected double calculateFeedForward() {
-		if(m_motionPlanEnabled && m_currentWaypoint != null) {
+		if((m_motionPlanEnabled || m_motionTrajectoryEnabled) && m_currentWaypoint != null) {
     		return (m_currentWaypoint.m_expectedAcceleration * m_kA) + (m_currentWaypoint.m_expectedVelocity * m_kV);
     	}
     	
@@ -228,6 +288,8 @@ public class SnazzyMotionPlanner extends SnazzyPIDCalculator {
 					runCalibration();
 				}else if(m_motionPlanEnabled){
 					runPlan();
+				}else if(m_motionTrajectoryEnabled) {
+					runTrajectory();
 				}
 
 			}

@@ -11,17 +11,18 @@ public class TrajectoryPlanner {
 	private static Trajectory m_right;
 	
     public static void generate() {
-        Trajectory.Config config = new Trajectory.Config(Trajectory.FitMethod.HERMITE_CUBIC, Trajectory.Config.SAMPLES_HIGH, 0.05, 120, 275, 300);
+        Trajectory.Config config = new Trajectory.Config(Trajectory.FitMethod.HERMITE_CUBIC, Trajectory.Config.SAMPLES_HIGH, 0.05, 150, 150, 600);
         Waypoint[] points = new Waypoint[] {
                 //new Waypoint(-4, -1, Pathfinder.d2r(-45)),
                 new Waypoint(0,0,0),
-                new Waypoint(48, 12, Pathfinder.d2r(30))
+                new Waypoint(240, 48, Pathfinder.d2r(30)),
+                new Waypoint(480,0,0)
         };
 
         Trajectory trajectory = Pathfinder.generate(points, config);
 
         // Wheelbase Width = 0.5m
-        TankModifier modifier = new TankModifier(trajectory).modify(17.5);
+        TankModifier modifier = new TankModifier(trajectory).modify(35);
 
         // Do something with the new Trajectories...
         m_left = modifier.getLeftTrajectory();
@@ -51,6 +52,14 @@ public class TrajectoryPlanner {
                     seg.acceleration + "," + seg.jerk + "," + seg.heading + "\n");
         }
         log.close();
+    }
+    
+    public Trajectory getLeftTrajectory() {
+    	return m_left;
+    }
+    
+    public Trajectory getRightTrajectory() {
+    	return m_right;
     }
 
 }

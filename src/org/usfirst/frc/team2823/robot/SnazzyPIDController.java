@@ -40,6 +40,7 @@ public class SnazzyPIDController extends SnazzyPIDCalculator {
 		      
 		      synchronized(this) {
 		    	  if(isEnabled()) {
+						System.out.println("BOOM controller 1");
 		    		  m_pidOutput.pidWrite(m_result);
 		    	  }
 		      }

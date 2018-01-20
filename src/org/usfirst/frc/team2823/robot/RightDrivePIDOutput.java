@@ -13,9 +13,9 @@ public class RightDrivePIDOutput implements PIDOutput {
 	@Override
 	public void pidWrite(double output) {
 		// TODO Auto-generated method stub
-		r.motor3.set(output);
-		r.motor4.set(output);
-		r.motor5.set(output);
+		r.motor0.set(-output);
+		r.motor1.set(-output);
+		r.motor2.set(-output);
 		
 	}
 

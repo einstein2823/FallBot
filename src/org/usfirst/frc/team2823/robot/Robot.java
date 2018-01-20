@@ -95,6 +95,7 @@ public class Robot extends IterativeRobot {
 
 	DoubleSolenoid solenoid1;
 	Compressor compressor;
+	
 	Encoder leftEncoder;
 	Encoder rightEncoder;
 	
@@ -177,8 +178,8 @@ public class Robot extends IterativeRobot {
 		rDriveOutput = new RightDrivePIDOutput(this);
 		
 		
-		leftControl = new SnazzyMotionPlanner(0.04, 0.001, 0.8, 0, 0.0017, 0.002,  leftEncoder, lDriveOutput, 0.01, "Left.csv");
-		rightControl= new SnazzyMotionPlanner(0.04, 0.001, 0.8, 0, 0.0017, 0.002,  rightEncoder, rDriveOutput, 0.01,"Right.csv");
+		leftControl = new SnazzyMotionPlanner(0.04, 0.001, 0.8, 0, 0.0017, 0.002,  leftEncoder, lDriveOutput, 0.05, "Left.csv");
+		rightControl= new SnazzyMotionPlanner(0.04, 0.001, 0.8, 0, 0.0017, 0.002,  rightEncoder, rDriveOutput, 0.05,"Right.csv");
 	
 		
 		SmartDashboard.putNumber("P", 0.01);
@@ -203,6 +204,10 @@ public class Robot extends IterativeRobot {
 	 */
 	@Override
 	public void autonomousInit() {
+		
+		leftEncoder.reset();
+		rightEncoder.reset();
+		
 		m_autoSelected = m_chooser.getSelected();
 		// autoSelected = SmartDashboard.getString("Auto Selector",
 		// defaultAuto);
@@ -210,6 +215,11 @@ public class Robot extends IterativeRobot {
 		traj = new TrajectoryPlanner();
 		traj.generate();
 		
+		leftControl.configureTrajectory(traj.getLeftTrajectory(), false);
+		rightControl.configureTrajectory(traj.getRightTrajectory(), false);
+		
+		leftControl.enable();
+		rightControl.enable();
 		
 	}
 
@@ -227,6 +237,9 @@ public class Robot extends IterativeRobot {
 			// Put default auto code here
 			break;
 		}
+		
+		SmartDashboard.putNumber("L Encoder", leftEncoder.get());
+		SmartDashboard.putNumber("R Encoder", rightEncoder.get());
 	}
 
 	/**
