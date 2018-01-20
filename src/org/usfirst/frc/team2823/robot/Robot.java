@@ -104,6 +104,7 @@ public class Robot extends IterativeRobot {
 	LeftDrivePIDOutput lDriveOutput;
 	RightDrivePIDOutput rDriveOutput;
 	
+	TrajectoryPlanner traj;
 	
 	double maxMotorPower = .8; // maximum motor power output for 775's - owen said 0.8, but trying 
 	double motorRampRate = 36;// owen
@@ -206,6 +207,8 @@ public class Robot extends IterativeRobot {
 		// autoSelected = SmartDashboard.getString("Auto Selector",
 		// defaultAuto);
 		//System.out.println("Auto selected: " + m_autoSelected);
+		traj = new TrajectoryPlanner();
+		traj.generate();
 		
 		
 	}

@@ -717,7 +717,7 @@ public class SnazzyPIDCalculator implements PIDInterface, LiveWindowSendable {
     m_result = 0;
   }
 
-  @Override
+
   public String getSmartDashboardType() {
     return "PIDController";
   }
@@ -802,7 +802,7 @@ public class SnazzyPIDCalculator implements PIDInterface, LiveWindowSendable {
   public void stopLiveWindowMode() {
   }
 
-@Override
+
 public void initTable(NetworkTable subtable) {
 	// TODO Auto-generated method stub
 	
