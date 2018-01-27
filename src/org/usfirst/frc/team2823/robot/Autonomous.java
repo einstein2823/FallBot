@@ -10,7 +10,7 @@ public class Autonomous {
 	StageDataElement[] stageData;
 	
 	class StageDataElement {
-		AutoBlueprint blueprint;
+		BlueprintStep blueprint;
 		boolean entered;
 	}
 	
@@ -19,7 +19,7 @@ public class Autonomous {
 	}
 	
 	/** Java has a dynamic array class called ArrayList, would it be better to use this over the static-length Array? **/
-	public void setBlueprints(AutoBlueprint[] b) {
+	public void setBlueprints(BlueprintStep[] b) {
 		stageData = new StageDataElement[b.length];
 		
 		for(int i = 0; i < b.length; i++) {
