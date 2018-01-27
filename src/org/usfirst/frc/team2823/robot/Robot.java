@@ -75,10 +75,6 @@ public class Robot extends IterativeRobot {
 
 	}
 
-	private static final String kDefaultAuto = "Default";
-	private static final String kCustomAuto = "My Auto";
-	private String m_autoSelected;
-	private SendableChooser<String> m_chooser = new SendableChooser<>();
 
 	Joystick joystick;
 
@@ -99,6 +95,9 @@ public class Robot extends IterativeRobot {
 	Encoder leftEncoder;
 	Encoder rightEncoder;
 	
+	//SnazzyPIDController leftControl;
+	//SnazzyPIDController rightControl;
+	
 	SnazzyMotionPlanner leftControl;
 	SnazzyMotionPlanner rightControl;
 	
@@ -106,6 +105,8 @@ public class Robot extends IterativeRobot {
 	RightDrivePIDOutput rDriveOutput;
 	
 	TrajectoryPlanner traj;
+	
+	SendableChooser<Autonomous> autonomousChooser;
 	
 	double maxMotorPower = .8; // maximum motor power output for 775's - owen said 0.8, but trying 
 	double motorRampRate = 36;// owen
@@ -128,9 +129,12 @@ public class Robot extends IterativeRobot {
 	 */
 	@Override
 	public void robotInit() {
-		m_chooser.addDefault("Default Auto", kDefaultAuto);
-		m_chooser.addObject("My Auto", kCustomAuto);
-		SmartDashboard.putData("Auto choices", m_chooser);
+		autonomousChooser = new SendableChooser<Autonomous>();
+		//autonomousChooser.addDefault("Empty: Do Nothing", new EmptyAutonomous(this));
+		autonomousChooser.addObject("Cross Baseline", new GoGoFallbotAuto(this));
+		autonomousChooser.addObject("Do a Spin", new SpinnyAuto(this));
+		SmartDashboard.putData("Autonomous Mode", autonomousChooser);
+		
 		/** UsbCamera c = CameraServer.getInstance().startAutomaticCapture();
 	        c.setResolution(320, 180);
 	        c.setFPS(29);
@@ -180,6 +184,9 @@ public class Robot extends IterativeRobot {
 		
 		leftControl = new SnazzyMotionPlanner(0.04, 0.001, 0.8, 0, 0.0017, 0.002,  leftEncoder, lDriveOutput, 0.05, "Left.csv");
 		rightControl= new SnazzyMotionPlanner(0.04, 0.001, 0.8, 0, 0.0017, 0.002,  rightEncoder, rDriveOutput, 0.05,"Right.csv");
+		
+		//leftControl = new SnazzyPIDController(0.04, 0.001, 0.8, 0, leftEncoder, lDriveOutput, 0.05, "Left.csv");
+		//rightControl= new SnazzyPIDController(0.04, 0.001, 0.8, 0, rightEncoder, rDriveOutput, 0.05,"Right.csv");
 	
 		
 		SmartDashboard.putNumber("P", 0.01);
@@ -208,18 +215,21 @@ public class Robot extends IterativeRobot {
 		leftEncoder.reset();
 		rightEncoder.reset();
 		
-		m_autoSelected = m_chooser.getSelected();
-		// autoSelected = SmartDashboard.getString("Auto Selector",
-		// defaultAuto);
-		//System.out.println("Auto selected: " + m_autoSelected);
-		traj = new TrajectoryPlanner();
-		traj.generate();
+		leftControl.reset();
+		rightControl.reset();
 		
-		leftControl.configureTrajectory(traj.getLeftTrajectory(), false);
-		rightControl.configureTrajectory(traj.getRightTrajectory(), false);
+		solenoid1.set(highGear);
+		try {
+			Thread.sleep(500);
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		solenoid1.set(lowGear);
 		
-		leftControl.enable();
-		rightControl.enable();
+		
+		((Autonomous) autonomousChooser.getSelected()).init();
+		
 		
 	}
 
@@ -228,15 +238,7 @@ public class Robot extends IterativeRobot {
 	 */
 	@Override
 	public void autonomousPeriodic() {
-		switch (m_autoSelected) {
-		case kCustomAuto:
-			// Put custom auto code here
-			break;
-		case kDefaultAuto:
-		default:
-			// Put default auto code here
-			break;
-		}
+		((Autonomous) autonomousChooser.getSelected()).periodic();
 		
 		SmartDashboard.putNumber("L Encoder", leftEncoder.get());
 		SmartDashboard.putNumber("R Encoder", rightEncoder.get());
@@ -302,25 +304,26 @@ public class Robot extends IterativeRobot {
 	public void testPeriodic() {
 		buttonX.update(joystick.getRawButton(1));
 		
-		//leftControl.setPID(SmartDashboard.getNumber("P", 0), SmartDashboard.getNumber("I", 0), SmartDashboard.getNumber("D", 0));
-		//rightControl.setPID(SmartDashboard.getNumber("P", 0), SmartDashboard.getNumber("I", 0), SmartDashboard.getNumber("D", 0));
+		
+		leftControl.setPID(SmartDashboard.getNumber("P", 0), SmartDashboard.getNumber("I", 0), SmartDashboard.getNumber("D", 0));
+		rightControl.setPID(SmartDashboard.getNumber("P", 0), SmartDashboard.getNumber("I", 0), SmartDashboard.getNumber("D", 0));
 		
 		if(buttonX.on()){
 			if(buttonX.changed()) {
 				leftEncoder.reset();
 				rightEncoder.reset();
 				
-				leftControl.configureGoal(SmartDashboard.getNumber("Setpoint", 0), 300, 300);
-				rightControl.configureGoal(SmartDashboard.getNumber("Setpoint", 0), 300, 300);
+				//leftControl.configureGoal(SmartDashboard.getNumber("Setpoint", 0), 300, 300);
+				//rightControl.configureGoal(SmartDashboard.getNumber("Setpoint", 0), 300, 300);
 				
-				leftControl.enable();
-				rightControl.enable();
-				
-				//leftControl.setSetpoint(20);
 				//leftControl.enable();
+				//rightControl.enable();
 				
-				//rightControl.setSetpoint(20);
-				//rightControl.enable();  
+				leftControl.setSetpoint(SmartDashboard.getNumber("Setpoint", 0));
+				leftControl.enable();
+				
+				rightControl.setSetpoint(SmartDashboard.getNumber("Setpoint", 0));
+				rightControl.enable();  
 			}
 			
 		}else if (buttonX.changed()&& !buttonX.on()){
@@ -330,6 +333,8 @@ public class Robot extends IterativeRobot {
 			//leftControl.stopCalibration();
 			//rightControl.startCalibration();
 		}
+		SmartDashboard.putNumber("L Encoder", leftEncoder.get());
+		SmartDashboard.putNumber("R Encoder", rightEncoder.get());
 	}
 	public void disabledInit() {
 		//System.out.println("disabled");

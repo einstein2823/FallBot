@@ -11,12 +11,12 @@ public class TrajectoryPlanner {
 	private static Trajectory m_right;
 	
     public static void generate() {
-        Trajectory.Config config = new Trajectory.Config(Trajectory.FitMethod.HERMITE_CUBIC, Trajectory.Config.SAMPLES_HIGH, 0.05, 150, 150, 600);
+        Trajectory.Config config = new Trajectory.Config(Trajectory.FitMethod.HERMITE_CUBIC, Trajectory.Config.SAMPLES_HIGH, 0.05, 300, 300, 600);
         Waypoint[] points = new Waypoint[] {
                 //new Waypoint(-4, -1, Pathfinder.d2r(-45)),
                 new Waypoint(0,0,0),
-                new Waypoint(240, 48, Pathfinder.d2r(30)),
-                new Waypoint(480,0,0)
+                //new Waypoint(240, 48, Pathfinder.d2r(30)),
+                new Waypoint(60,20,0)
         };
 
         Trajectory trajectory = Pathfinder.generate(points, config);
